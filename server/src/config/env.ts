@@ -7,6 +7,7 @@ const envSchema = z.object({
     .default('development'),
   PORT: z.coerce.number().int().positive().default(5000),
   CLIENT_ORIGIN: z.url().default('http://localhost:5173'),
+  CLIENT_ORIGINS: z.string().optional(),
   DATABASE_URL: z
     .string()
     .default('mysql://flowboard:flowboard_password@localhost:3306/flowboard'),
@@ -23,6 +24,10 @@ export const env = {
   nodeEnv: parsedEnv.NODE_ENV,
   port: parsedEnv.PORT,
   clientOrigin: parsedEnv.CLIENT_ORIGIN,
+  clientOrigins:
+    parsedEnv.CLIENT_ORIGINS?.split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean) ?? [parsedEnv.CLIENT_ORIGIN],
   databaseUrl: parsedEnv.DATABASE_URL,
   jwtSecret: parsedEnv.JWT_SECRET,
   jwtExpiresIn: parsedEnv.JWT_EXPIRES_IN,

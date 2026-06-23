@@ -10,13 +10,26 @@ import { tasksRouter } from './features/tasks/tasks.routes.js';
 import { usersRouter } from './features/users/users.routes.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 
+const localhostOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/;
+
 export const createApp = () => {
   const app = express();
 
   app.use(helmet());
   app.use(
     cors({
-      origin: env.clientOrigin,
+      origin: (origin, callback) => {
+        if (!origin) {
+          callback(null, true);
+          return;
+        }
+
+        const isAllowedOrigin = env.clientOrigins.includes(origin);
+        const isLocalDevOrigin =
+          !env.isProduction && localhostOriginPattern.test(origin);
+
+        callback(null, isAllowedOrigin || isLocalDevOrigin);
+      },
       credentials: true,
     }),
   );
