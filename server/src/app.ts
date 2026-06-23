@@ -5,6 +5,9 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 
 import { env } from './config/env.js';
+import { authRouter } from './features/auth/auth.routes.js';
+import { usersRouter } from './features/users/users.routes.js';
+import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 
 export const createApp = () => {
   const app = express();
@@ -27,6 +30,12 @@ export const createApp = () => {
       timestamp: new Date().toISOString(),
     });
   });
+
+  app.use('/api/auth', authRouter);
+  app.use('/api/users', usersRouter);
+
+  app.use(notFoundHandler);
+  app.use(errorHandler);
 
   return app;
 };

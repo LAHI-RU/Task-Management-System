@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  TESTING
+  DONE
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(USER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  createdTasks  Task[] @relation("CreatedTasks")
+  assignedTasks Task[] @relation("AssignedTasks")
+}
+
+model Task {
+  id           String       @id @default(cuid())
+  title        String
+  description  String       @db.Text
+  priority     TaskPriority @default(MEDIUM)
+  status       TaskStatus   @default(OPEN)
+  dueDate      DateTime
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  createdById  String
+  assignedToId String
+
+  createdBy  User @relation("CreatedTasks", fields: [createdById], references: [id], onDelete: Cascade)
+  assignedTo User @relation("AssignedTasks", fields: [assignedToId], references: [id], onDelete: Cascade)
+
+  @@index([createdById])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([priority])
+  @@index([dueDate])
+}
