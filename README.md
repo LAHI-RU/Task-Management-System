@@ -93,3 +93,15 @@ Task filters:
 - `dueTo`
 - `page`
 - `pageSize`
+
+## Frontend Demo
+
+Run both apps and open the client:
+
+```bash
+npm run dev
+```
+
+- Client: http://localhost:5173
+- Login page: http://localhost:5173/login
+- Protected app: http://localhost:5173/app

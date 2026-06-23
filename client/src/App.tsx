@@ -1,44 +1,53 @@
-import './App.css';
+import {
+  Navigate,
+  RouterProvider,
+  createBrowserRouter,
+} from 'react-router-dom';
 
-function App() {
-  return (
-    <main className="app-shell">
-      <section className="hero-panel">
-        <div className="eyebrow">Newnop Assignment Build</div>
-        <h1>FlowBoard</h1>
-        <p>
-          A modern task management system for role-based team workflow, task
-          ownership, assignment, filtering, and delivery tracking.
-        </p>
-      </section>
+import { AppLayout } from './components/layout/AppLayout';
+import { ProtectedRoute } from './features/auth/ProtectedRoute';
+import { LoginPage } from './features/auth/pages/LoginPage';
+import { RegisterPage } from './features/auth/pages/RegisterPage';
+import { DashboardPage } from './features/dashboard/DashboardPage';
+import { TasksPage } from './features/tasks/TasksPage';
 
-      <section className="status-grid" aria-label="Project setup status">
-        <article>
-          <span>01</span>
-          <h2>React Client</h2>
-          <p>Vite, TypeScript, and production build tooling are ready.</p>
-        </article>
-        <article>
-          <span>02</span>
-          <h2>Express API</h2>
-          <p>Server scaffold includes security, CORS, JSON, and health route.</p>
-        </article>
-        <article>
-          <span>03</span>
-          <h2>Next Step</h2>
-          <p>Database schema, authentication, roles, and seed users.</p>
-        </article>
-      </section>
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <Navigate to="/app" replace />,
+  },
+  {
+    path: '/login',
+    element: <LoginPage />,
+  },
+  {
+    path: '/register',
+    element: <RegisterPage />,
+  },
+  {
+    path: '/app',
+    element: (
+      <ProtectedRoute>
+        <AppLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        index: true,
+        element: <DashboardPage />,
+      },
+      {
+        path: 'tasks',
+        element: <TasksPage />,
+      },
+    ],
+  },
+  {
+    path: '*',
+    element: <Navigate to="/app" replace />,
+  },
+]);
 
-      <div className="manual-test">
-        <strong>Manual checkpoint:</strong>
-        <span>
-          Run <code>npm run dev</code>, open the client, and verify the API at{' '}
-          <code>/api/health</code>.
-        </span>
-      </div>
-    </main>
-  );
+export default function App() {
+  return <RouterProvider router={router} />;
 }
-
-export default App;
