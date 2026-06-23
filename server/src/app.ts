@@ -6,6 +6,7 @@ import morgan from 'morgan';
 
 import { env } from './config/env.js';
 import { authRouter } from './features/auth/auth.routes.js';
+import { tasksRouter } from './features/tasks/tasks.routes.js';
 import { usersRouter } from './features/users/users.routes.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 
@@ -32,6 +33,7 @@ export const createApp = () => {
   });
 
   app.use('/api/auth', authRouter);
+  app.use('/api/tasks', tasksRouter);
   app.use('/api/users', usersRouter);
 
   app.use(notFoundHandler);

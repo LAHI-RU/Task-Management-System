@@ -64,3 +64,32 @@ Demo accounts:
 
 - Admin: `admin@flowboard.dev` / `Admin@12345`
 - User: `user@flowboard.dev` / `User@12345`
+
+## API Checkpoints
+
+Auth:
+
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
+
+Tasks:
+
+- `GET /api/tasks`
+- `POST /api/tasks`
+- `GET /api/tasks/:taskId`
+- `PATCH /api/tasks/:taskId`
+- `DELETE /api/tasks/:taskId`
+
+Task filters:
+
+- `search`
+- `priority`
+- `status`
+- `assignedToId`
+- `createdById`
+- `dueFrom`
+- `dueTo`
+- `page`
+- `pageSize`
