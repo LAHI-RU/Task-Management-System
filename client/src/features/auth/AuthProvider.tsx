@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ApiError } from '../../lib/api';
 import { getMe, login, logout, register } from './authApi';
@@ -23,13 +23,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
-  if (meQuery.data?.user && user?.id !== meQuery.data.user.id) {
-    setUser(meQuery.data.user);
-  }
+  useEffect(() => {
+    if (meQuery.data?.user) {
+      setUser(meQuery.data.user);
+    }
+  }, [meQuery.data?.user]);
 
-  if (meQuery.error instanceof ApiError && meQuery.error.status === 401 && user) {
-    setUser(null);
-  }
+  useEffect(() => {
+    if (meQuery.error instanceof ApiError && meQuery.error.status === 401) {
+      setUser(null);
+    }
+  }, [meQuery.error]);
 
   const loginUser = useCallback(
     async (input: LoginInput) => {

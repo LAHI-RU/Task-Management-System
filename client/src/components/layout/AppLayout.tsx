@@ -66,7 +66,7 @@ export function AppLayout() {
           </div>
           <NavLink className="secondary-button" to="/app/tasks">
             <Plus size={17} />
-            New task
+            Tasks
           </NavLink>
         </header>
 
