@@ -14,7 +14,7 @@ export const authRouter = Router();
 
 const cookieOptions = {
   httpOnly: true,
-  sameSite: 'lax' as const,
+  sameSite: env.isProduction ? ('none' as const) : ('lax' as const),
   secure: env.isProduction,
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
