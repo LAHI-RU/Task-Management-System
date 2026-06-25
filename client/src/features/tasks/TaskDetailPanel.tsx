@@ -45,6 +45,7 @@ export function TaskDetailPanel({
             <Edit3 size={17} />
           </button>
           <button
+            aria-label="Delete task"
             className="icon-button danger"
             disabled={!canDelete}
             onClick={() => onDelete(task)}

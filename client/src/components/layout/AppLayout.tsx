@@ -3,33 +3,28 @@ import {
   LayoutDashboard,
   ListTodo,
   LogOut,
-  Plus,
 } from 'lucide-react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 
 import { useAuth } from '../../features/auth/useAuth';
 
-const pageMeta: Record<string, { title: string; description: string }> = {
-  '/app': {
-    title: 'Dashboard',
-    description: 'A protected workspace for task workflow and ownership.',
-  },
-  '/app/tasks': {
-    title: 'Tasks',
-    description: 'Create, assign, filter, update, and review task records.',
-  },
+const pageTitles: Record<string, string> = {
+  '/app': 'Dashboard',
+  '/app/tasks': 'Tasks',
 };
 
 export function AppLayout() {
   const { user, logoutUser } = useAuth();
   const location = useLocation();
-  const meta = pageMeta[location.pathname] ?? pageMeta['/app'];
+  const pageTitle = pageTitles[location.pathname] ?? pageTitles['/app'];
 
   return (
     <div className="app-frame">
       <aside className="sidebar">
         <div className="brand-mark">
-          <CheckCircle2 size={23} />
+          <span className="brand-icon" aria-hidden="true">
+            <CheckCircle2 size={20} strokeWidth={2.6} />
+          </span>
           <span>FlowBoard</span>
         </div>
 
@@ -48,7 +43,6 @@ export function AppLayout() {
           <div className="sidebar-user">
             <strong>{user?.name}</strong>
             <span>{user?.email}</span>
-            <span className="role-pill">{user?.role}</span>
           </div>
 
           <button className="ghost-button" onClick={logoutUser} type="button">
@@ -60,14 +54,7 @@ export function AppLayout() {
 
       <main className="app-main">
         <header className="topbar">
-          <div>
-            <h1>{meta.title}</h1>
-            <p>{meta.description}</p>
-          </div>
-          <NavLink className="secondary-button" to="/app/tasks">
-            <Plus size={17} />
-            Tasks
-          </NavLink>
+          <h1>{pageTitle}</h1>
         </header>
 
         <div className="page-content">

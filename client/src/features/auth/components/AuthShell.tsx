@@ -5,31 +5,19 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
     <main className="auth-page">
       <section className="auth-visual">
         <div className="brand-mark">
-          <CheckCircle2 size={24} />
+          <span className="brand-icon" aria-hidden="true">
+            <CheckCircle2 size={21} strokeWidth={2.6} />
+          </span>
           <span>FlowBoard</span>
         </div>
 
         <div className="auth-visual-content">
-          <h1>Focused work, clear ownership.</h1>
+          <span className="auth-kicker">Team workflow</span>
+          <h1>Plan work with clarity.</h1>
           <p>
-            Manage team tasks with role-based access, assignment visibility,
-            workflow states, and a clean interface built for daily execution.
+            A focused workspace for assigning tasks, tracking progress, and
+            keeping ownership visible across the team.
           </p>
-
-          <div className="auth-metrics" aria-label="Workflow highlights">
-            <div>
-              <strong>4</strong>
-              <span>workflow states</span>
-            </div>
-            <div>
-              <strong>2</strong>
-              <span>access roles</span>
-            </div>
-            <div>
-              <strong>100%</strong>
-              <span>assignment aware</span>
-            </div>
-          </div>
         </div>
       </section>
 

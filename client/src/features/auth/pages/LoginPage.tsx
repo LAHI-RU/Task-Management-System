@@ -53,8 +53,8 @@ export function LoginPage() {
   return (
     <AuthShell>
       <div className="auth-card">
-        <h2>Welcome back</h2>
-        <p>Sign in with a demo account to open the protected workspace.</p>
+        <h2>Sign in</h2>
+        <p>Access your workspace and continue managing team tasks.</p>
 
         <form className="form-stack" onSubmit={onSubmit}>
           <div className="field">
