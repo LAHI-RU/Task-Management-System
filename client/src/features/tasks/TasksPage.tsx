@@ -1,6 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Edit3, Filter, Plus, Search, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import {
+  AlertTriangle,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Edit3,
+  Plus,
+  Search,
+  Trash2,
+} from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { ApiError } from '../../lib/api';
 import { useAuth } from '../auth/useAuth';
@@ -14,9 +24,132 @@ import {
   taskStatuses,
 } from './taskOptions';
 import { createTask, deleteTask, getTasks, updateTask } from './tasksApi';
-import type { Task, TaskInput, TaskListFilters } from './types';
+import type {
+  Task,
+  TaskInput,
+  TaskListFilters,
+  TaskPriority,
+  TaskStatus,
+} from './types';
 
 const emptyTasks: Task[] = [];
+const NOTICE_VISIBLE_MS = 4_000;
+const TASKS_PAGE_SIZE = 15;
+
+type NoticeTone = 'success' | 'error';
+
+type Notice = {
+  id: number;
+  message: string;
+  tone: NoticeTone;
+};
+
+type DropdownOption<Value extends string> = {
+  label: string;
+  value: Value;
+};
+
+type FilterDropdownProps<Value extends string> = {
+  allLabel: string;
+  label: string;
+  options: Array<DropdownOption<Value>>;
+  value: Value | '';
+  onChange: (value: Value | '') => void;
+};
+
+const optionTone = (value: string) => value.toLowerCase().replace(/_/g, '-');
+
+function FilterDropdown<Value extends string>({
+  allLabel,
+  label,
+  options,
+  value,
+  onChange,
+}: FilterDropdownProps<Value>) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const selectedOption = options.find((option) => option.value === value);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!dropdownRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  const selectValue = (nextValue: Value | '') => {
+    onChange(nextValue);
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="filter-dropdown" ref={dropdownRef}>
+      <button
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        className="filter-dropdown-trigger"
+        onClick={() => setIsOpen((current) => !current)}
+        type="button"
+      >
+        <span
+          className={`filter-option-dot ${value ? `tone-${optionTone(value)}` : ''}`}
+        />
+        <span>{selectedOption?.label ?? allLabel}</span>
+        <ChevronDown aria-hidden="true" size={16} />
+      </button>
+
+      {isOpen ? (
+        <div aria-label={label} className="filter-dropdown-menu" role="listbox">
+          <button
+            aria-selected={value === ''}
+            className="filter-dropdown-option"
+            onClick={() => selectValue('')}
+            role="option"
+            type="button"
+          >
+            <span className="filter-option-dot" />
+            <span>{allLabel}</span>
+            {value === '' ? <Check aria-hidden="true" size={15} /> : null}
+          </button>
+
+          {options.map((option) => (
+            <button
+              aria-selected={value === option.value}
+              className="filter-dropdown-option"
+              key={option.value}
+              onClick={() => selectValue(option.value)}
+              role="option"
+              type="button"
+            >
+              <span className={`filter-option-dot tone-${optionTone(option.value)}`} />
+              <span>{option.label}</span>
+              {value === option.value ? <Check aria-hidden="true" size={15} /> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 const formatDueDate = (date: string) =>
   new Intl.DateTimeFormat(undefined, {
@@ -30,12 +163,14 @@ export function TasksPage() {
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState<TaskListFilters>({
     page: 1,
-    pageSize: 20,
+    pageSize: TASKS_PAGE_SIZE,
   });
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const noticeIdRef = useRef(0);
 
   const tasksQuery = useQuery({
     queryKey: ['tasks', filters],
@@ -49,6 +184,13 @@ export function TasksPage() {
   });
 
   const tasks = tasksQuery.data?.tasks ?? emptyTasks;
+  const pagination = tasksQuery.data?.meta;
+  const currentPage = filters.page ?? 1;
+  const pageSize = filters.pageSize ?? TASKS_PAGE_SIZE;
+  const pageCount = Math.max(pagination?.pageCount ?? 1, 1);
+  const totalTasks = pagination?.total ?? 0;
+  const firstTaskNumber = totalTasks === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const lastTaskNumber = Math.min(currentPage * pageSize, totalTasks);
   const selectedTask = useMemo(
     () => tasks.find((task) => task.id === selectedTaskId) ?? tasks[0] ?? null,
     [selectedTaskId, tasks],
@@ -61,6 +203,46 @@ export function TasksPage() {
         ? [user]
         : [];
 
+  const showNotice = (message: string, tone: NoticeTone = 'success') => {
+    noticeIdRef.current += 1;
+    setNotice({
+      id: noticeIdRef.current,
+      message,
+      tone,
+    });
+  };
+
+  useEffect(() => {
+    if (!notice) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setNotice((currentNotice) =>
+        currentNotice?.id === notice.id ? null : currentNotice,
+      );
+    }, NOTICE_VISIBLE_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [notice]);
+
+  useEffect(() => {
+    if (!pagination || tasksQuery.isFetching) {
+      return;
+    }
+
+    const lastAvailablePage = Math.max(pagination.pageCount, 1);
+
+    if (pagination.page > lastAvailablePage) {
+      setFilters((current) => ({
+        ...current,
+        page: lastAvailablePage,
+      }));
+    }
+  }, [pagination, tasksQuery.isFetching]);
+
   const saveTaskMutation = useMutation({
     mutationFn: async (input: TaskInput) => {
       if (editingTask) {
@@ -70,28 +252,55 @@ export function TasksPage() {
       return createTask(input);
     },
     onSuccess: async (response) => {
-      setNotice(editingTask ? 'Task updated successfully.' : 'Task created successfully.');
+      showNotice(
+        editingTask ? 'Task updated successfully.' : 'Task created successfully.',
+      );
       setSelectedTaskId(response.task.id);
       setIsFormOpen(false);
       setEditingTask(null);
       await queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
     onError: (error) => {
-      setNotice(error instanceof ApiError ? error.message : 'Unable to save task.');
+      showNotice(
+        error instanceof ApiError ? error.message : 'Unable to save task.',
+        'error',
+      );
     },
   });
 
   const deleteTaskMutation = useMutation({
     mutationFn: deleteTask,
     onSuccess: async () => {
-      setNotice('Task deleted successfully.');
+      showNotice('Task deleted successfully.');
       setSelectedTaskId(null);
+      setTaskToDelete(null);
       await queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
     onError: (error) => {
-      setNotice(error instanceof ApiError ? error.message : 'Unable to delete task.');
+      showNotice(
+        error instanceof ApiError ? error.message : 'Unable to delete task.',
+        'error',
+      );
     },
   });
+
+  useEffect(() => {
+    if (!taskToDelete || deleteTaskMutation.isPending) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setTaskToDelete(null);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [deleteTaskMutation.isPending, taskToDelete]);
 
   const canDelete = (task: Task) =>
     user?.role === 'ADMIN' || task.createdById === user?.id;
@@ -109,11 +318,22 @@ export function TasksPage() {
   };
 
   const handleDelete = (task: Task) => {
-    const confirmed = window.confirm(`Delete "${task.title}"?`);
+    setNotice(null);
+    setTaskToDelete(task);
+  };
 
-    if (confirmed) {
-      deleteTaskMutation.mutate(task.id);
+  const confirmDelete = () => {
+    if (taskToDelete) {
+      deleteTaskMutation.mutate(taskToDelete.id);
     }
+  };
+
+  const goToPage = (page: number) => {
+    setFilters((current) => ({
+      ...current,
+      page,
+      pageSize: TASKS_PAGE_SIZE,
+    }));
   };
 
   return (
@@ -132,7 +352,11 @@ export function TasksPage() {
         </button>
       </section>
 
-      {notice ? <div className="notice-banner">{notice}</div> : null}
+      {notice ? (
+        <div className={`notice-banner notice-${notice.tone}`} role="status">
+          {notice.message}
+        </div>
+      ) : null}
 
       <section className="task-workspace">
         <div className="task-list-panel">
@@ -152,47 +376,33 @@ export function TasksPage() {
               />
             </label>
 
-            <label>
-              <Filter size={16} />
-              <select
-                value={filters.status ?? ''}
-                onChange={(event) =>
-                  setFilters((current) => ({
-                    ...current,
-                    status: event.target.value as TaskListFilters['status'],
-                    page: 1,
-                  }))
-                }
-              >
-                <option value="">All statuses</option>
-                {taskStatuses.map((status) => (
-                  <option key={status.value} value={status.value}>
-                    {status.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <FilterDropdown<TaskStatus>
+              allLabel="All statuses"
+              label="Filter by status"
+              options={taskStatuses}
+              value={filters.status ?? ''}
+              onChange={(status) =>
+                setFilters((current) => ({
+                  ...current,
+                  status,
+                  page: 1,
+                }))
+              }
+            />
 
-            <label>
-              <Filter size={16} />
-              <select
-                value={filters.priority ?? ''}
-                onChange={(event) =>
-                  setFilters((current) => ({
-                    ...current,
-                    priority: event.target.value as TaskListFilters['priority'],
-                    page: 1,
-                  }))
-                }
-              >
-                <option value="">All priorities</option>
-                {taskPriorities.map((priority) => (
-                  <option key={priority.value} value={priority.value}>
-                    {priority.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <FilterDropdown<TaskPriority>
+              allLabel="All priorities"
+              label="Filter by priority"
+              options={taskPriorities}
+              value={filters.priority ?? ''}
+              onChange={(priority) =>
+                setFilters((current) => ({
+                  ...current,
+                  priority,
+                  page: 1,
+                }))
+              }
+            />
           </div>
 
           <div className="table-wrap">
@@ -272,6 +482,33 @@ export function TasksPage() {
               </tbody>
             </table>
           </div>
+
+          <div className="table-pagination">
+            <span>
+              Showing {firstTaskNumber}-{lastTaskNumber} of {totalTasks} tasks
+            </span>
+            <div className="pagination-actions" aria-label="Task table pagination">
+              <button
+                className="icon-button"
+                disabled={currentPage <= 1 || tasksQuery.isFetching}
+                onClick={() => goToPage(currentPage - 1)}
+                type="button"
+              >
+                <ChevronLeft size={17} />
+              </button>
+              <strong>
+                Page {currentPage} of {pageCount}
+              </strong>
+              <button
+                className="icon-button"
+                disabled={currentPage >= pageCount || tasksQuery.isFetching}
+                onClick={() => goToPage(currentPage + 1)}
+                type="button"
+              >
+                <ChevronRight size={17} />
+              </button>
+            </div>
+          </div>
         </div>
 
         <TaskDetailPanel
@@ -297,6 +534,46 @@ export function TasksPage() {
           await saveTaskMutation.mutateAsync(input);
         }}
       />
+
+      {taskToDelete ? (
+        <div className="confirm-backdrop" role="presentation">
+          <section
+            aria-labelledby="delete-task-title"
+            aria-modal="true"
+            className="confirm-dialog"
+            role="dialog"
+          >
+            <div className="confirm-icon">
+              <AlertTriangle size={22} />
+            </div>
+            <div className="confirm-content">
+              <h3 id="delete-task-title">Delete this task?</h3>
+              <p>
+                <strong>{taskToDelete.title}</strong> will be permanently removed.
+                This action cannot be undone.
+              </p>
+              <div className="confirm-actions">
+                <button
+                  className="ghost-button"
+                  disabled={deleteTaskMutation.isPending}
+                  onClick={() => setTaskToDelete(null)}
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <button
+                  className="danger-button"
+                  disabled={deleteTaskMutation.isPending}
+                  onClick={confirmDelete}
+                  type="button"
+                >
+                  {deleteTaskMutation.isPending ? 'Deleting...' : 'Delete task'}
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </>
   );
 }

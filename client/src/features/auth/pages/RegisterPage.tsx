@@ -54,7 +54,7 @@ export function RegisterPage() {
     <AuthShell>
       <div className="auth-card">
         <h2>Create account</h2>
-        <p>New accounts start as standard users with assignment-based access.</p>
+        <p>Set up your workspace profile and start organizing tasks.</p>
 
         <form className="form-stack" onSubmit={onSubmit}>
           <div className="field">

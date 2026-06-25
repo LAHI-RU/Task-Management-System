@@ -1,10 +1,10 @@
-import { X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Check, ChevronDown, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 
 import type { User } from '../auth/types';
 import { taskPriorities, taskStatuses } from './taskOptions';
-import type { Task, TaskInput } from './types';
+import type { Task, TaskInput, TaskPriority, TaskStatus } from './types';
 
 const taskFormSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters.').max(120),
@@ -28,6 +28,103 @@ type TaskFormModalProps = {
   onSubmit: (input: TaskInput) => Promise<void>;
 };
 
+type DropdownOption<Value extends string> = {
+  label: string;
+  value: Value;
+};
+
+type FormDropdownProps<Value extends string> = {
+  disabled?: boolean;
+  id: string;
+  label: string;
+  name: string;
+  options: Array<DropdownOption<Value>>;
+  value: Value;
+  onChange: (value: Value) => void;
+};
+
+function FormDropdown<Value extends string>({
+  disabled = false,
+  id,
+  label,
+  name,
+  options,
+  value,
+  onChange,
+}: FormDropdownProps<Value>) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const selectedOption = options.find((option) => option.value === value);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!dropdownRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  const selectValue = (nextValue: Value) => {
+    onChange(nextValue);
+    setIsOpen(false);
+  };
+
+  return (
+    <div className={`form-dropdown ${isOpen ? 'is-open' : ''}`} ref={dropdownRef}>
+      <input name={name} type="hidden" value={value} />
+      <button
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        aria-label={label}
+        className="form-dropdown-trigger"
+        disabled={disabled}
+        id={id}
+        onClick={() => setIsOpen((current) => !current)}
+        type="button"
+      >
+        <span>{selectedOption?.label ?? value}</span>
+        <ChevronDown aria-hidden="true" size={17} />
+      </button>
+
+      {isOpen ? (
+        <div aria-label={label} className="form-dropdown-menu" role="listbox">
+          {options.map((option) => (
+            <button
+              aria-selected={value === option.value}
+              className="form-dropdown-option"
+              key={option.value}
+              onClick={() => selectValue(option.value)}
+              role="option"
+              type="button"
+            >
+              <span>{option.label}</span>
+              {value === option.value ? <Check aria-hidden="true" size={16} /> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 const toDateInputValue = (date: string) => {
   const parsedDate = new Date(date);
   const offset = parsedDate.getTimezoneOffset() * 60_000;
@@ -48,15 +145,36 @@ export function TaskFormModal({
   onSubmit,
 }: TaskFormModalProps) {
   const [errors, setErrors] = useState<TaskFormErrors>({});
+  const [priority, setPriority] = useState<TaskPriority>('MEDIUM');
+  const [status, setStatus] = useState<TaskStatus>('OPEN');
+  const [assignedToId, setAssignedToId] = useState(currentUserId);
+  const canChangeAssignee = isAdmin || task?.createdById === currentUserId;
 
   useEffect(() => {
     if (isOpen) {
       setErrors({});
+      setPriority(task?.priority ?? 'MEDIUM');
+      setStatus(task?.status ?? 'OPEN');
+      setAssignedToId(task?.assignedToId ?? currentUserId);
     }
-  }, [isOpen, task?.id]);
+  }, [currentUserId, isOpen, task?.assignedToId, task?.id, task?.priority, task?.status]);
 
   if (!isOpen) {
     return null;
+  }
+
+  const assigneeOptions: Array<DropdownOption<string>> = users.length
+    ? users.map((user) => ({ label: user.name, value: user.id }))
+    : [{ label: 'Me', value: currentUserId }];
+
+  if (
+    task?.assignedTo &&
+    !assigneeOptions.some((option) => option.value === task.assignedToId)
+  ) {
+    assigneeOptions.push({
+      label: task.assignedTo.name,
+      value: task.assignedToId,
+    });
   }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -85,11 +203,19 @@ export function TaskFormModal({
     }
 
     setErrors({});
-    await onSubmit({
+    const nextInput: TaskInput = {
       ...parsed.data,
       dueDate: new Date(parsed.data.dueDate).toISOString(),
       assignedToId: parsed.data.assignedToId || currentUserId,
-    });
+    };
+
+    if (task && !canChangeAssignee) {
+      const { assignedToId: _assignedToId, ...inputWithoutAssignee } = nextInput;
+      await onSubmit(inputWithoutAssignee);
+      return;
+    }
+
+    await onSubmit(nextInput);
   };
 
   return (
@@ -132,32 +258,26 @@ export function TaskFormModal({
           <div className="form-grid">
             <div className="field">
               <label htmlFor="task-priority">Priority</label>
-              <select
-                defaultValue={task?.priority ?? 'MEDIUM'}
+              <FormDropdown<TaskPriority>
                 id="task-priority"
+                label="Priority"
                 name="priority"
-              >
-                {taskPriorities.map((priority) => (
-                  <option key={priority.value} value={priority.value}>
-                    {priority.label}
-                  </option>
-                ))}
-              </select>
+                options={taskPriorities}
+                value={priority}
+                onChange={setPriority}
+              />
             </div>
 
             <div className="field">
               <label htmlFor="task-status">Status</label>
-              <select
-                defaultValue={task?.status ?? 'OPEN'}
+              <FormDropdown<TaskStatus>
                 id="task-status"
+                label="Status"
                 name="status"
-              >
-                {taskStatuses.map((status) => (
-                  <option key={status.value} value={status.value}>
-                    {status.label}
-                  </option>
-                ))}
-              </select>
+                options={taskStatuses}
+                value={status}
+                onChange={setStatus}
+              />
             </div>
           </div>
 
@@ -175,21 +295,15 @@ export function TaskFormModal({
 
             <div className="field">
               <label htmlFor="task-assignee">Assignee</label>
-              <select
-                defaultValue={task?.assignedToId ?? currentUserId}
-                disabled={!isAdmin && task?.createdById !== currentUserId}
+              <FormDropdown
+                disabled={!canChangeAssignee}
                 id="task-assignee"
+                label="Assignee"
                 name="assignedToId"
-              >
-                {!isAdmin && users.length === 0 ? (
-                  <option value={currentUserId}>Me</option>
-                ) : null}
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.name}
-                  </option>
-                ))}
-              </select>
+                options={assigneeOptions}
+                value={assignedToId}
+                onChange={setAssignedToId}
+              />
             </div>
           </div>
 
