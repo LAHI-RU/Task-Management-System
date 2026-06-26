@@ -25,8 +25,8 @@ export function LoginPage() {
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: 'admin@flowboard.dev',
-      password: 'Admin@12345',
+      email: '',
+      password: '',
     },
   });
 
